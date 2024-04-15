@@ -1,8 +1,7 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using static UnityEditor.PlayerSettings;
 
 public class SlotController : MonoBehaviour
 {
@@ -16,6 +15,8 @@ public class SlotController : MonoBehaviour
 
     private List<Vector2Int> remainSlots = new();
 
+    private List<Vector2Int> storeRemainSlots = new();
+
     bool canPlay = false;
 
     [SerializeField] private Sprite playerSprite;
@@ -26,7 +27,6 @@ public class SlotController : MonoBehaviour
     [SerializeField] private int checkSlotAmount = 5;
 
     private List<MachinePlay> machineSlots = new();
-    private List<Vector2Int> machinePlaySlots = new();
 
     private List<SlotCheck> topDownStore = new();
     private List<SlotCheck> leftRightStore = new();
@@ -37,6 +37,8 @@ public class SlotController : MonoBehaviour
 
     private bool hasNewPos = false;
     private Vector2Int newPos = new();
+
+    bool endGame = false;
 
     private void Awake()
     {
@@ -51,13 +53,6 @@ public class SlotController : MonoBehaviour
     {
         SpawnSlot();
         canPlay = true;
-    }
-    private void Update()
-    {
-        if (Input.GetKeyDown(KeyCode.Space))
-        {
-            Refresh();
-        }
     }
     public void SpawnSlot()
     {
@@ -76,9 +71,10 @@ public class SlotController : MonoBehaviour
                 Vector2Int pos = new(i, j);
                 tempSlot.SlotInit(pos, defaultSprite);
                 slots[pos] = tempSlot;
-                remainSlots.Add(pos);
+                storeRemainSlots.Add(pos);
             }
         }
+        remainSlots = new(storeRemainSlots);
     }
     public void Refresh()
     {
@@ -94,7 +90,15 @@ public class SlotController : MonoBehaviour
                 tempSlot.SlotInit(pos, defaultSprite);
             }
         }
+        remainSlots = new(storeRemainSlots);
         canPlay = true;
+        endGame = false;
+        machineSlots?.Clear();
+        topDownStore?.Clear();
+        leftRightStore?.Clear();
+        crossLeftStore?.Clear();
+        crossRightStore?.Clear();
+        winSlot?.Clear();
     }
     public bool CanPlay()
     {
@@ -117,6 +121,11 @@ public class SlotController : MonoBehaviour
     }
     public void PlayerPlay(Slot currentSlot)
     {
+        if (endGame)
+        {
+            return;
+        }
+
         remainSlots.Remove(currentSlot.GetPosition());
         currentSlot.ChangeSlotItem(playerSprite, true);
         canPlay = false;
@@ -467,6 +476,11 @@ public class SlotController : MonoBehaviour
     }
     public void CheckPosition(Vector2Int pos)
     {
+        if (endGame)
+        {
+            return;
+        }
+
         List<SlotCheck> top = new();
         List<SlotCheck> bottom = new();
         List<SlotCheck> left = new();
@@ -493,14 +507,6 @@ public class SlotController : MonoBehaviour
         MachineNewList(crossTopRight, pos, "crossTopRight");
         MachineNewList(crossBottomLeft, pos, "crossBottomLeft");
         MachineNewList(crossBottomRight, pos, "crossBottomRight");
-
-        Slot currentSlot = slots[pos];
-        int count = SlotCheck(currentSlot, false);
-        if (count >= checkSlotAmount)
-        {
-            EndGame(false);
-            return;
-        }
     }
     public void CheckMachinePlayPosition(Vector2Int pos)
     {
@@ -541,7 +547,6 @@ public class SlotController : MonoBehaviour
         reCheckList.AddRange(crossTopLeft);
         reCheckList.AddRange(crossTopRight);
 
-        machinePlaySlots.Add(pos);
         Slot currentSlot = slots[pos];
         currentSlot.ChangeSlotItem(machineSprite, false);
         int count = SlotCheck(currentSlot, false);
@@ -549,6 +554,16 @@ public class SlotController : MonoBehaviour
         {
             EndGame(false);
             return;
+        }
+        for (int i = 0; i < reCheckList.Count; i++)
+        {
+            SlotCheck current = reCheckList[i];
+            Slot tempSlot = slots[current.pos];
+            if (!tempSlot.GetChoose())
+            {
+                reCheckList.Remove(current);
+                i--;
+            }
         }
 
         for (int i = 0; i < reCheckList.Count; i++)
@@ -559,6 +574,11 @@ public class SlotController : MonoBehaviour
     }
     public void MachineNewList(List<SlotCheck> nextSlot, Vector2Int root, string side)
     {
+        if (endGame)
+        {
+            return;
+        }
+
         if (nextSlot.Count < checkSlotAmount)
         {
             return;
@@ -567,13 +587,26 @@ public class SlotController : MonoBehaviour
         int total = 0;
         for (int i = 0; i < nextSlot.Count; i++)
         {
-            list.Add(nextSlot[i].pos);
-            if (nextSlot[i].isCheck)
+            SlotCheck next = nextSlot[i];
+            list.Add(next.pos);
+            if (next.isCheck)
             {
-                total++;
+                if (slots.ContainsKey(next.pos))
+                {
+                    Slot pos = slots[next.pos];
+                    if (pos.IsMachineOwner())
+                    {
+                        total++;
+                    }
+                }
             }
         }
-        Debug.Log(total);
+        if (total >= checkSlotAmount)
+        {
+            EndGame(false);
+            winSlot = nextSlot;
+            return;
+        }
 
         MachinePlay newItem = new(side, root, list, total);
 
@@ -592,11 +625,11 @@ public class SlotController : MonoBehaviour
     {
         if (isPlayer)
         {
-            Debug.Log("Player win");
+            EndGameController.instance.EndGame("Bạn đã thắng!");
         }
         else
         {
-            Debug.Log("Machine win");
+            EndGameController.instance.EndGame("Máy đã thắng!");
         }
         for (int i = 0; i < winSlot.Count; i++)
         {
