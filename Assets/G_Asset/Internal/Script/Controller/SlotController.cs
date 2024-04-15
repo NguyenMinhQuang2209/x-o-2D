@@ -236,7 +236,6 @@ public class SlotController : MonoBehaviour
         int crossTopRight = TotalCount(crossLeftStore, false, pos, new(1, 1), new(-1, -1), false, true);
         int crossBottomRight = TotalCount(crossRightStore, false, pos, new(-1, 1), new(1, -1), false, true);
 
-
         hasNewPos = false;
 
         bool needCheck = true;
@@ -272,10 +271,6 @@ public class SlotController : MonoBehaviour
         if (!hasNewPos)
         {
             newPos = MachinePlay(pos);
-        }
-        else
-        {
-            Debug.Log(newPos.x + "-" + newPos.y);
         }
         remainSlots.Remove(newPos);
 
@@ -373,9 +368,8 @@ public class SlotController : MonoBehaviour
                             count = newCount;
                         }
                     }
-
-                    int centerPoint = (int)Mathf.Ceil(predictList.Count / 2);
-                    for (int i = 0; i < (int)Mathf.Floor(predictList.Count / 2); i++)
+                    int centerPoint = (int)Mathf.Floor(predictList.Count / 2);
+                    for (int i = 0; i < Mathf.Ceil((float)predictList.Count / 2); i++)
                     {
                         SlotCheck item = predictList[centerPoint + i];
                         if (!item.isCheck)
@@ -394,11 +388,6 @@ public class SlotController : MonoBehaviour
                                 break;
                             }
                         }
-                    }
-                    if (count == 4)
-                    {
-                        Debug.Log(hasNewPos);
-                        Debug.Log(newPos);
                     }
                 }
             }
