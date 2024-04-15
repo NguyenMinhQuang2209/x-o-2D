@@ -242,7 +242,7 @@ public class SlotController : MonoBehaviour
 
         if (machineSlots.Count > 0)
         {
-            if (machineSlots[0].count == checkSlotAmount - 1)
+            if (machineSlots[0].count >= checkSlotAmount - 1)
             {
                 needCheck = false;
             }
@@ -393,15 +393,6 @@ public class SlotController : MonoBehaviour
             }
         }
     }
-    public Vector2Int GetPosition(List<SlotCheck> slotChecks)
-    {
-        Vector2Int nextPos = new();
-        for (int i = 0; i < slotChecks.Count; i++)
-        {
-
-        }
-        return nextPos;
-    }
     public Vector2Int MachinePlay(Vector2Int pos)
     {
         if (machineSlots.Count > 0)
@@ -474,6 +465,43 @@ public class SlotController : MonoBehaviour
         int newPos = Random.Range(0, remainSlots.Count);
         return remainSlots[newPos];
     }
+    public void CheckPosition(Vector2Int pos)
+    {
+        List<SlotCheck> top = new();
+        List<SlotCheck> bottom = new();
+        List<SlotCheck> left = new();
+        List<SlotCheck> right = new();
+        List<SlotCheck> crossTopLeft = new();
+        List<SlotCheck> crossTopRight = new();
+        List<SlotCheck> crossBottomLeft = new();
+        List<SlotCheck> crossBottomRight = new();
+
+        SlotCount(top, true, pos, 0, -1, false, false);
+        SlotCount(bottom, true, pos, 0, 1, false, false);
+        SlotCount(left, true, pos, -1, 0, false, false);
+        SlotCount(right, true, pos, 1, 0, false, false);
+        SlotCount(crossTopLeft, true, pos, -1, -1, false, false);
+        SlotCount(crossTopRight, true, pos, 1, 1, false, false);
+        SlotCount(crossBottomLeft, true, pos, -1, 1, false, false);
+        SlotCount(crossBottomRight, true, pos, 1, -1, false, false);
+
+        MachineNewList(top, pos, "top");
+        MachineNewList(bottom, pos, "bottom");
+        MachineNewList(left, pos, "left");
+        MachineNewList(right, pos, "right");
+        MachineNewList(crossTopLeft, pos, "crossTopLeft");
+        MachineNewList(crossTopRight, pos, "crossTopRight");
+        MachineNewList(crossBottomLeft, pos, "crossBottomLeft");
+        MachineNewList(crossBottomRight, pos, "crossBottomRight");
+
+        Slot currentSlot = slots[pos];
+        int count = SlotCheck(currentSlot, false);
+        if (count >= checkSlotAmount)
+        {
+            EndGame(false);
+            return;
+        }
+    }
     public void CheckMachinePlayPosition(Vector2Int pos)
     {
         List<SlotCheck> top = new();
@@ -485,23 +513,33 @@ public class SlotController : MonoBehaviour
         List<SlotCheck> crossBottomLeft = new();
         List<SlotCheck> crossBottomRight = new();
 
-        int upCount = SlotCount(top, true, pos, 0, -1, false, false) + 1;
-        int downCount = SlotCount(bottom, true, pos, 0, 1, false, false) + 1;
-        int leftCount = SlotCount(left, true, pos, -1, 0, false, false) + 1;
-        int rightCount = SlotCount(right, true, pos, 1, 0, false, false) + 1;
-        int crossTopLeftCount = SlotCount(crossTopLeft, true, pos, -1, -1, false, false) + 1;
-        int crossTopRightCount = SlotCount(crossTopRight, true, pos, 1, 1, false, false) + 1;
-        int crossBottomLeftCount = SlotCount(crossBottomLeft, true, pos, -1, 1, false, false) + 1;
-        int crossBottomRightCount = SlotCount(crossBottomRight, true, pos, 1, -1, false, false) + 1;
+        SlotCount(top, true, pos, 0, -1, false, false);
+        SlotCount(bottom, true, pos, 0, 1, false, false);
+        SlotCount(left, true, pos, -1, 0, false, false);
+        SlotCount(right, true, pos, 1, 0, false, false);
+        SlotCount(crossTopLeft, true, pos, -1, -1, false, false);
+        SlotCount(crossTopRight, true, pos, 1, 1, false, false);
+        SlotCount(crossBottomLeft, true, pos, -1, 1, false, false);
+        SlotCount(crossBottomRight, true, pos, 1, -1, false, false);
 
-        MachineNewList(upCount, top);
-        MachineNewList(downCount, bottom);
-        MachineNewList(leftCount, left);
-        MachineNewList(rightCount, right);
-        MachineNewList(crossTopLeftCount, crossTopLeft);
-        MachineNewList(crossTopRightCount, crossTopRight);
-        MachineNewList(crossBottomLeftCount, crossBottomLeft);
-        MachineNewList(crossBottomRightCount, crossBottomRight);
+        MachineNewList(top, pos, "top");
+        MachineNewList(bottom, pos, "bottom");
+        MachineNewList(left, pos, "left");
+        MachineNewList(right, pos, "right");
+        MachineNewList(crossTopLeft, pos, "crossTopLeft");
+        MachineNewList(crossTopRight, pos, "crossTopRight");
+        MachineNewList(crossBottomLeft, pos, "crossBottomLeft");
+        MachineNewList(crossBottomRight, pos, "crossBottomRight");
+
+        List<SlotCheck> reCheckList = new();
+        reCheckList.AddRange(top);
+        reCheckList.AddRange(bottom);
+        reCheckList.AddRange(left);
+        reCheckList.AddRange(right);
+        reCheckList.AddRange(crossBottomLeft);
+        reCheckList.AddRange(crossBottomRight);
+        reCheckList.AddRange(crossTopLeft);
+        reCheckList.AddRange(crossTopRight);
 
         machinePlaySlots.Add(pos);
         Slot currentSlot = slots[pos];
@@ -510,19 +548,45 @@ public class SlotController : MonoBehaviour
         if (count >= checkSlotAmount)
         {
             EndGame(false);
+            return;
         }
+
+        for (int i = 0; i < reCheckList.Count; i++)
+        {
+            CheckPosition(reCheckList[i].pos);
+        }
+
     }
-    public void MachineNewList(int count, List<SlotCheck> nextSlot)
+    public void MachineNewList(List<SlotCheck> nextSlot, Vector2Int root, string side)
     {
+        if (nextSlot.Count < checkSlotAmount)
+        {
+            return;
+        }
         List<Vector2Int> list = new();
+        int total = 0;
         for (int i = 0; i < nextSlot.Count; i++)
         {
             list.Add(nextSlot[i].pos);
+            if (nextSlot[i].isCheck)
+            {
+                total++;
+            }
         }
+        Debug.Log(total);
 
-        MachinePlay newItem = new(list, count);
-        machineSlots.Add(newItem);
-        machineSlots.Sort((x, y) => x.count.CompareTo(y.count));
+        MachinePlay newItem = new(side, root, list, total);
+
+        MachinePlay existItem = machineSlots.Find((x) => x.root == root && x.side == side);
+        if (existItem != null)
+        {
+            existItem.UpdateValues(list, total);
+        }
+        else
+        {
+            machineSlots.Add(newItem);
+        }
+        machineSlots.Sort((x, y) => y.count.CompareTo(x.count));
     }
     public void EndGame(bool isPlayer)
     {
@@ -565,9 +629,18 @@ public class SlotCheck
 }
 public class MachinePlay
 {
+    public string side = "";
+    public Vector2Int root;
     public List<Vector2Int> list = new();
     public int count = 0;
-    public MachinePlay(List<Vector2Int> list, int count)
+    public MachinePlay(string side, Vector2Int root, List<Vector2Int> list, int count)
+    {
+        this.root = root;
+        this.list = list;
+        this.count = count;
+        this.side = side;
+    }
+    public void UpdateValues(List<Vector2Int> list, int count)
     {
         this.list = list;
         this.count = count;
