@@ -261,6 +261,8 @@ MonoBehaviour:
   size: {x: 20, y: 20}
   playerSprite: {fileID: 21300000, guid: 2e67a451c6bdae1439d009508d84e561, type: 3}
   machineSprite: {fileID: 21300000, guid: 8fcbcfb023ac8cc47879dbd6ef7e2946, type: 3}
+  defaultSprite: {fileID: 0}
+  winSprite: {fileID: 21300000, guid: c66ea4e0d6ee1dd40a1012e4991fdb1e, type: 3}
   checkSlotAmount: 5
 --- !u!4 &37519011
 Transform:

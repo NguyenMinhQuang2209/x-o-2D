@@ -19,8 +19,19 @@ public class SlotController : MonoBehaviour
     [SerializeField] private Sprite playerSprite;
     [SerializeField] private Sprite machineSprite;
     [SerializeField] private Sprite defaultSprite;
+    [SerializeField] private Sprite winSprite;
 
     [SerializeField] private int checkSlotAmount = 5;
+
+    private List<MachinePlay> machineSlots = new();
+    private List<Vector2Int> machinePlaySlots = new();
+
+    private List<SlotCheck> topDownStore = new();
+    private List<SlotCheck> leftRightStore = new();
+    private List<SlotCheck> crossLeftStore = new();
+    private List<SlotCheck> crossRightStore = new();
+
+    private List<SlotCheck> winSlot = new();
 
     private void Awake()
     {
@@ -83,59 +94,92 @@ public class SlotController : MonoBehaviour
     {
         return canPlay;
     }
+    public bool IsUseSlot(Vector2Int pos)
+    {
+        if (!slots.ContainsKey(pos))
+        {
+            return true;
+        }
+        else
+        {
+            return slots[pos].GetChoose();
+        }
+    }
+    public bool IsExistSlot(Vector2Int pos)
+    {
+        return slots.ContainsKey(pos);
+    }
     public void PlayerPlay(Slot currentSlot)
     {
         currentSlot.ChangeSlotItem(playerSprite, true);
         canPlay = false;
-        bool isDone = SlotCheck(currentSlot);
-        if (isDone)
+
+        int count = SlotCheck(currentSlot, true);
+        if (count >= checkSlotAmount)
         {
-            Debug.Log("End game");
+            EndGame(true);
         }
         else
         {
-            MachinePlay();
+            MachinePlay(currentSlot);
         }
     }
-    public bool SlotCheck(Slot checkSlot)
+    public int SlotCheck(Slot checkSlot, bool isPlayer)
     {
+        int count = 0;
         Vector2Int pos = checkSlot.GetPosition();
-        int topDown = TotalCount(pos, new(0, -1), new(0, 1));
-        int leftRight = TotalCount(pos, new(-1, 0), new(1, 0));
-        int crossTopRight = TotalCount(pos, new(1, 1), new(-1, -1));
-        int crossBottomRight = TotalCount(pos, new(-1, 1), new(1, -1));
+
+        int topDown = TotalCount(topDownStore, true, pos, new(0, -1), new(0, 1), false, isPlayer);
+        int leftRight = TotalCount(leftRightStore, true, pos, new(-1, 0), new(1, 0), false, isPlayer);
+        int crossTopRight = TotalCount(crossLeftStore, true, pos, new(1, 1), new(-1, -1), false, isPlayer);
+        int crossBottomRight = TotalCount(crossRightStore, true, pos, new(-1, 1), new(1, -1), false, isPlayer);
+
+
+        count = count > topDown ? count : topDown;
+
         if (topDown >= checkSlotAmount)
         {
-            return true;
+            winSlot = topDownStore;
         }
+
+        count = count > leftRight ? count : leftRight;
 
         if (leftRight >= checkSlotAmount)
         {
-            return true;
+            winSlot = leftRightStore;
         }
+
+        count = count > crossTopRight ? count : crossBottomRight;
 
         if (crossTopRight >= checkSlotAmount)
         {
-            return true;
+            winSlot = crossLeftStore;
         }
+
+        count = count > crossBottomRight ? count : crossBottomRight;
 
         if (crossBottomRight >= checkSlotAmount)
         {
-            return true;
+            winSlot = crossRightStore;
         }
 
-        return false;
+        return count;
     }
-    public int TotalCount(Vector2Int pos, Vector2Int check1, Vector2Int check2)
+    public int TotalCount(List<SlotCheck> store, bool storing, Vector2Int pos, Vector2Int check1, Vector2Int check2, bool stopWhenNotChoose = true, bool isPlayerOwner = true)
     {
-        int up = SlotCount(pos, check1.x, check1.y);
-        int down = SlotCount(pos, check2.x, check2.y);
+        if (storing)
+        {
+            store?.Clear();
+        }
+        int up = SlotCount(store, storing, pos, check1.x, check1.y, stopWhenNotChoose, isPlayerOwner);
+        int down = SlotCount(store, storing, pos, check2.x, check2.y, stopWhenNotChoose, isPlayerOwner);
         return up + down + 1;
     }
-    public int SlotCount(Vector2Int checkPos, int x, int y, bool isPlayerOwner = true)
+    public int SlotCount(List<SlotCheck> store, bool storing, Vector2Int checkPos, int x, int y, bool stopWhenNotChoose = true, bool isPlayerOwner = true)
     {
         int count = 0;
         Vector2Int previousPos = checkPos;
+        if (storing) store.Add(new(checkPos, true));
         for (int i = 0; i < checkSlotAmount; i++)
         {
             Vector2Int nextPosition = new(previousPos.x + x, previousPos.y + y);
@@ -158,18 +202,235 @@ public class SlotController : MonoBehaviour
                     {
                         count += 1;
                     }
-                    previousPos = nextPosition;
                 }
                 else
                 {
-                    return count;
+                    if (stopWhenNotChoose)
+                    {
+                        return count;
+                    }
                 }
+                previousPos = nextPosition;
+                if (storing) store.Add(new(nextPosition, isChoose));
             }
         }
         return count;
     }
-    public void MachinePlay()
+    public void MachinePlay(Slot currentSlot)
     {
+        Vector2Int pos = currentSlot.GetPosition();
+
+        int topDown = TotalCount(topDownStore, false, pos, new(0, -1), new(0, 1), false, true);
+        int leftRight = TotalCount(leftRightStore, false, pos, new(-1, 0), new(1, 0), false, true);
+        int crossTopRight = TotalCount(crossLeftStore, false, pos, new(1, 1), new(-1, -1), false, true);
+        int crossBottomRight = TotalCount(crossRightStore, false, pos, new(-1, 1), new(1, -1), false, true);
+
+        Vector2Int nextPosition = new();
+
+        bool hasNewPos = false;
+
+        if (topDown >= checkSlotAmount - 2)
+        {
+            hasNewPos = true;
+            Debug.Log("TOp down");
+        }
+        if (leftRight >= checkSlotAmount - 2)
+        {
+            hasNewPos = true;
+            Debug.Log("leftRight");
+        }
+        if (crossTopRight >= checkSlotAmount - 2)
+        {
+            hasNewPos = true;
+            Debug.Log("crossTopRight");
+        }
+        if (crossBottomRight >= checkSlotAmount - 2)
+        {
+            hasNewPos = true;
+            Debug.Log("crossBottomRight");
+        }
+
+        if (!hasNewPos)
+        {
+            nextPosition = MachinePlay(pos);
+        }
+        else
+        {
+            nextPosition = MachinePlay(pos);
+        }
+
+        CheckMachinePlayPosition(nextPosition);
+
         canPlay = true;
+    }
+    public Vector2Int GetPosition(List<SlotCheck> slotChecks)
+    {
+        Vector2Int nextPos = new();
+        for (int i = 0; i < slotChecks.Count; i++)
+        {
+
+        }
+        return nextPos;
+    }
+    public Vector2Int MachinePlay(Vector2Int pos)
+    {
+        if (machineSlots.Count > 0)
+        {
+            for (int i = 0; i < machineSlots.Count; i++)
+            {
+                MachinePlay item = machineSlots[i];
+                List<Vector2Int> list = item.list;
+                Vector2Int nextPos = new();
+                bool havingNextPos = false;
+                for (int j = 0; j < list.Count; j++)
+                {
+                    Vector2Int currentPos = list[j];
+                    if (slots.ContainsKey(currentPos))
+                    {
+                        Slot currentSlot = slots[currentPos];
+                        if (!currentSlot.GetChoose())
+                        {
+                            if (!havingNextPos)
+                            {
+                                nextPos = currentPos;
+                                havingNextPos = true;
+                            }
+                        }
+                        else
+                        {
+                            if (currentSlot.IsPlayerOwner())
+                            {
+                                havingNextPos = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (havingNextPos)
+                {
+                    return nextPos;
+                }
+                else
+                {
+                    machineSlots.RemoveAt(i);
+                    i--;
+                }
+            }
+        }
+        else
+        {
+            Vector2Int top = new(pos.x, pos.y - 1);
+            if (slots.ContainsKey(top))
+            {
+                return top;
+            }
+            Vector2Int bottom = new(pos.x, pos.y + 1);
+            if (slots.ContainsKey(bottom))
+            {
+                return bottom;
+            }
+            Vector2Int left = new(pos.x - 1, pos.y);
+            if (slots.ContainsKey(left))
+            {
+                return left;
+            }
+            Vector2Int right = new(pos.x + 1, pos.y);
+            if (slots.ContainsKey(right))
+            {
+                return right;
+            }
+        }
+
+        return new();
+    }
+    public void CheckMachinePlayPosition(Vector2Int pos)
+    {
+        List<SlotCheck> top = new();
+        List<SlotCheck> bottom = new();
+        List<SlotCheck> left = new();
+        List<SlotCheck> right = new();
+        List<SlotCheck> crossTopLeft = new();
+        List<SlotCheck> crossTopRight = new();
+        List<SlotCheck> crossBottomLeft = new();
+        List<SlotCheck> crossBottomRight = new();
+
+        int upCount = SlotCount(top, true, pos, 0, -1, false, false) + 1;
+        int downCount = SlotCount(bottom, true, pos, 0, 1, false, false) + 1;
+        int leftCount = SlotCount(left, true, pos, -1, 0, false, false) + 1;
+        int rightCount = SlotCount(right, true, pos, 1, 0, false, false) + 1;
+        int crossTopLeftCount = SlotCount(crossTopLeft, true, pos, -1, -1, false, false) + 1;
+        int crossTopRightCount = SlotCount(crossTopRight, true, pos, 1, 1, false, false) + 1;
+        int crossBottomLeftCount = SlotCount(crossBottomLeft, true, pos, -1, 1, false, false) + 1;
+        int crossBottomRightCount = SlotCount(crossBottomRight, true, pos, 1, -1, false, false) + 1;
+
+        MachineNewList(upCount, top);
+        MachineNewList(downCount, bottom);
+        MachineNewList(leftCount, left);
+        MachineNewList(rightCount, right);
+        MachineNewList(crossTopLeftCount, crossTopLeft);
+        MachineNewList(crossTopRightCount, crossTopRight);
+        MachineNewList(crossBottomLeftCount, crossBottomLeft);
+        MachineNewList(crossBottomRightCount, crossBottomRight);
+
+        machinePlaySlots.Add(pos);
+        Slot currentSlot = slots[pos];
+        currentSlot.ChangeSlotItem(machineSprite, false);
+        int count = SlotCheck(currentSlot, false);
+        if (count >= checkSlotAmount)
+        {
+            EndGame(false);
+        }
+    }
+    public void MachineNewList(int count, List<SlotCheck> nextSlot)
+    {
+        List<Vector2Int> list = new();
+        for (int i = 0; i < nextSlot.Count; i++)
+        {
+            list.Add(nextSlot[i].pos);
+        }
+
+        MachinePlay newItem = new(list, count);
+        machineSlots.Add(newItem);
+        machineSlots.Sort((x, y) => x.count.CompareTo(y.count));
+    }
+    public void EndGame(bool isPlayer)
+    {
+        if (isPlayer)
+        {
+            Debug.Log("Player win");
+        }
+        else
+        {
+            Debug.Log("Machine win");
+        }
+        for (int i = 0; i < winSlot.Count; i++)
+        {
+            Vector2Int pos = winSlot[i].pos;
+            Slot slot = slots[pos];
+            if (slot.GetChoose())
+            {
+                slot.WinSprite(winSprite);
+            }
+        }
+    }
+}
+public class SlotCheck
+{
+    public Vector2Int pos;
+    public bool isCheck;
+    public SlotCheck(Vector2Int pos, bool isCheck)
+    {
+        this.pos = pos;
+        this.isCheck = isCheck;
+    }
+}
+public class MachinePlay
+{
+    public List<Vector2Int> list = new();
+    public int count = 0;
+    public MachinePlay(List<Vector2Int> list, int count)
+    {
+        this.list = list;
+        this.count = count;
     }
 }

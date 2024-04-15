@@ -44,6 +44,10 @@ public class Slot : MonoBehaviour
         isMachineOwner = !isPlayerOwner;
         this.isPlayerOwner = isPlayerOwner;
     }
+    public void WinSprite(Sprite newSprite)
+    {
+        icon.sprite = newSprite;
+    }
     public string GetPositionString()
     {
         return position.x + "-" + position.y;
