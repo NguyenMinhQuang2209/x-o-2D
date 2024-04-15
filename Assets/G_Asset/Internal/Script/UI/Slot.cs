@@ -7,7 +7,7 @@ public class Slot : MonoBehaviour
 {
     public Button btn;
     public Image icon;
-    private Vector2Int position = new();
+    public Vector2Int position = new();
     bool isPlayerOwner = false;
     bool isMachineOwner = false;
     private void Start()

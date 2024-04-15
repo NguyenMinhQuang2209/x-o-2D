@@ -14,6 +14,8 @@ public class SlotController : MonoBehaviour
     [SerializeField] private Vector2Int size = new(20, 20);
     private Dictionary<Vector2Int, Slot> slots = new();
 
+    private List<Vector2Int> remainSlots = new();
+
     bool canPlay = false;
 
     [SerializeField] private Sprite playerSprite;
@@ -32,6 +34,9 @@ public class SlotController : MonoBehaviour
     private List<SlotCheck> crossRightStore = new();
 
     private List<SlotCheck> winSlot = new();
+
+    private bool hasNewPos = false;
+    private Vector2Int newPos = new();
 
     private void Awake()
     {
@@ -71,6 +76,7 @@ public class SlotController : MonoBehaviour
                 Vector2Int pos = new(i, j);
                 tempSlot.SlotInit(pos, defaultSprite);
                 slots[pos] = tempSlot;
+                remainSlots.Add(pos);
             }
         }
     }
@@ -111,6 +117,7 @@ public class SlotController : MonoBehaviour
     }
     public void PlayerPlay(Slot currentSlot)
     {
+        remainSlots.Remove(currentSlot.GetPosition());
         currentSlot.ChangeSlotItem(playerSprite, true);
         canPlay = false;
 
@@ -129,10 +136,10 @@ public class SlotController : MonoBehaviour
         int count = 0;
         Vector2Int pos = checkSlot.GetPosition();
 
-        int topDown = TotalCount(topDownStore, true, pos, new(0, -1), new(0, 1), false, isPlayer);
-        int leftRight = TotalCount(leftRightStore, true, pos, new(-1, 0), new(1, 0), false, isPlayer);
-        int crossTopRight = TotalCount(crossLeftStore, true, pos, new(1, 1), new(-1, -1), false, isPlayer);
-        int crossBottomRight = TotalCount(crossRightStore, true, pos, new(-1, 1), new(1, -1), false, isPlayer);
+        int topDown = TotalCount(topDownStore, true, pos, new(0, -1), new(0, 1), true, isPlayer);
+        int leftRight = TotalCount(leftRightStore, true, pos, new(-1, 0), new(1, 0), true, isPlayer);
+        int crossTopRight = TotalCount(crossLeftStore, true, pos, new(1, 1), new(-1, -1), true, isPlayer);
+        int crossBottomRight = TotalCount(crossRightStore, true, pos, new(-1, 1), new(1, -1), true, isPlayer);
 
 
         count = count > topDown ? count : topDown;
@@ -180,7 +187,7 @@ public class SlotController : MonoBehaviour
         int count = 0;
         Vector2Int previousPos = checkPos;
         if (storing) store.Add(new(checkPos, true));
-        for (int i = 0; i < checkSlotAmount; i++)
+        for (int i = 1; i < checkSlotAmount; i++)
         {
             Vector2Int nextPosition = new(previousPos.x + x, previousPos.y + y);
             if (!slots.ContainsKey(nextPosition))
@@ -202,6 +209,10 @@ public class SlotController : MonoBehaviour
                     {
                         count += 1;
                     }
+                    else
+                    {
+                        return count;
+                    }
                 }
                 else
                 {
@@ -220,48 +231,178 @@ public class SlotController : MonoBehaviour
     {
         Vector2Int pos = currentSlot.GetPosition();
 
-        int topDown = TotalCount(topDownStore, false, pos, new(0, -1), new(0, 1), false, true);
-        int leftRight = TotalCount(leftRightStore, false, pos, new(-1, 0), new(1, 0), false, true);
+        int topDown = TotalCount(topDownStore, false, pos, new(-1, 0), new(1, 0), false, true);
+        int leftRight = TotalCount(leftRightStore, false, pos, new(0, -1), new(0, 1), false, true);
         int crossTopRight = TotalCount(crossLeftStore, false, pos, new(1, 1), new(-1, -1), false, true);
         int crossBottomRight = TotalCount(crossRightStore, false, pos, new(-1, 1), new(1, -1), false, true);
 
-        Vector2Int nextPosition = new();
 
-        bool hasNewPos = false;
+        hasNewPos = false;
 
-        if (topDown >= checkSlotAmount - 2)
+        bool needCheck = true;
+
+        if (machineSlots.Count > 0)
         {
-            hasNewPos = true;
-            Debug.Log("TOp down");
+            if (machineSlots[0].count == checkSlotAmount - 1)
+            {
+                needCheck = false;
+            }
         }
-        if (leftRight >= checkSlotAmount - 2)
+
+        if (needCheck)
         {
-            hasNewPos = true;
-            Debug.Log("leftRight");
-        }
-        if (crossTopRight >= checkSlotAmount - 2)
-        {
-            hasNewPos = true;
-            Debug.Log("crossTopRight");
-        }
-        if (crossBottomRight >= checkSlotAmount - 2)
-        {
-            hasNewPos = true;
-            Debug.Log("crossBottomRight");
+            if (topDown >= checkSlotAmount - 2)
+            {
+                PlayPointMachineCheck(pos, new(1, 0), new(-1, 0));
+            }
+            if (leftRight >= checkSlotAmount - 2)
+            {
+                PlayPointMachineCheck(pos, new(0, -1), new(0, 1));
+            }
+            if (crossTopRight >= checkSlotAmount - 2)
+            {
+                PlayPointMachineCheck(pos, new(1, 1), new(-1, -1));
+            }
+            if (crossBottomRight >= checkSlotAmount - 2)
+            {
+                PlayPointMachineCheck(pos, new(1, -1), new(-1, 1));
+            }
         }
 
         if (!hasNewPos)
         {
-            nextPosition = MachinePlay(pos);
+            newPos = MachinePlay(pos);
         }
         else
         {
-            nextPosition = MachinePlay(pos);
+            Debug.Log(newPos.x + "-" + newPos.y);
         }
+        remainSlots.Remove(newPos);
 
-        CheckMachinePlayPosition(nextPosition);
+        CheckMachinePlayPosition(newPos);
 
         canPlay = true;
+    }
+    public void PlayPointMachineCheck(Vector2Int pos, Vector2Int firstCheck, Vector2Int secondCheck)
+    {
+        List<SlotCheck> left = new();
+        List<SlotCheck> right = new();
+
+        int leftCount = SlotCount(left, true, pos, firstCheck.x, firstCheck.y, false, true);
+        int rightCount = SlotCount(right, true, pos, secondCheck.x, secondCheck.y, false, true);
+        if (left.Count + right.Count > checkSlotAmount - 1)
+        {
+            if (left.Count == 0)
+            {
+                if (right.Count >= checkSlotAmount - 1)
+                {
+                    right.Add(new(pos, true));
+                    for (int i = 0; i < right.Count; i++)
+                    {
+                        SlotCheck current = right[i];
+                        if (!current.isCheck)
+                        {
+                            newPos = current.pos;
+                            hasNewPos = true;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                if (right.Count == 0)
+                {
+                    if (left.Count >= checkSlotAmount - 1)
+                    {
+                        left.Add(new(pos, true));
+                        for (int i = 0; i < left.Count; i++)
+                        {
+                            SlotCheck current = left[i];
+                            if (!current.isCheck)
+                            {
+                                newPos = current.pos;
+                                hasNewPos = true;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    List<SlotCheck> totalCheck = new();
+                    totalCheck.AddRange(left);
+                    totalCheck.AddRange(right);
+                    SlotCheck rootItem = new(pos, true);
+
+                    for (int i = 0; i < totalCheck.Count; i++)
+                    {
+                        SlotCheck checkItem = totalCheck[i];
+                        if (checkItem.pos == rootItem.pos)
+                        {
+                            totalCheck.RemoveAt(i);
+                            break;
+                        }
+                    }
+
+                    totalCheck.Sort((a, b) =>
+                    {
+                        int compareY = a.pos.x.CompareTo(b.pos.x);
+                        if (compareY != 0)
+                        {
+                            return compareY;
+                        }
+                        return a.pos.y.CompareTo(b.pos.y);
+                    });
+                    int count = 0;
+                    List<SlotCheck> predictList = new();
+                    for (int i = 0; i < totalCheck.Count - checkSlotAmount + 1; i++)
+                    {
+                        SlotCheck item = totalCheck[i];
+                        Slot itemSlot = slots[item.pos];
+                        List<SlotCheck> tempList = totalCheck.GetRange(i, checkSlotAmount);
+                        int newCount = 0;
+                        foreach (SlotCheck check in tempList)
+                        {
+                            if (check.isCheck)
+                            {
+                                newCount++;
+                            }
+                        }
+                        if (newCount > count)
+                        {
+                            predictList = new(tempList);
+                            count = newCount;
+                        }
+                    }
+
+                    int centerPoint = (int)Mathf.Ceil(predictList.Count / 2);
+                    for (int i = 0; i < (int)Mathf.Floor(predictList.Count / 2); i++)
+                    {
+                        SlotCheck item = predictList[centerPoint + i];
+                        if (!item.isCheck)
+                        {
+                            newPos = item.pos;
+                            hasNewPos = true;
+                            break;
+                        }
+                        if (i != 0)
+                        {
+                            SlotCheck secondItem = predictList[centerPoint - i];
+                            if (!secondItem.isCheck)
+                            {
+                                newPos = secondItem.pos;
+                                hasNewPos = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (count == 4)
+                    {
+                        Debug.Log(hasNewPos);
+                        Debug.Log(newPos);
+                    }
+                }
+            }
+        }
     }
     public Vector2Int GetPosition(List<SlotCheck> slotChecks)
     {
@@ -341,7 +482,8 @@ public class SlotController : MonoBehaviour
             }
         }
 
-        return new();
+        int newPos = Random.Range(0, remainSlots.Count);
+        return remainSlots[newPos];
     }
     public void CheckMachinePlayPosition(Vector2Int pos)
     {
@@ -409,7 +551,15 @@ public class SlotController : MonoBehaviour
             Slot slot = slots[pos];
             if (slot.GetChoose())
             {
-                slot.WinSprite(winSprite);
+                bool isOwnerPlayer = slot.IsPlayerOwner();
+                if (isOwnerPlayer && isPlayer)
+                {
+                    slot.WinSprite(winSprite);
+                }
+                else if (!isOwnerPlayer && !isPlayer)
+                {
+                    slot.WinSprite(winSprite);
+                }
             }
         }
     }
